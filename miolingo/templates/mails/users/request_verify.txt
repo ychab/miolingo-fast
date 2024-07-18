@@ -1,0 +1,8 @@
+{{ fullname }}, welcome to Miolingo app!
+
+Your account has been created successfully but is awaiting email verification.
+To verify your account in the app, please click on the following link:
+{{ verify_link }}
+
+Best regards,
+Miolingo team

@@ -1,0 +1,27 @@
+services:
+
+  postgres:
+    image: postgres:16.1
+    container_name: miolingofast_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${MIOLINGO_POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_passwd
+      POSTGRES_DB: ${MIOLINGO_POSTGRES_DB:-postgres}
+    ports:
+      - ${MIOLINGO_POSTGRES_PORT:-5432}:5432
+    healthcheck:
+      test: pg_isready -U ${MIOLINGO_POSTGRES_USER:-postgres} -d ${MIOLINGO_POSTGRES_DB:-postgres}
+      interval: 5s
+    secrets:
+      - pg_passwd
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:
+    name: miolingofast_pg
+
+secrets:
+  pg_passwd:
+    environment: MIOLINGO_POSTGRES_PASSWORD

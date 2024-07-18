@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+*.egg-info
+
+.tox
+.coverage
+/htmlcov
+
+.python-version
+poetry.toml
+
+.env
+
+.idea
+.vscode
+.history
