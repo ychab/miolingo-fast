@@ -9,18 +9,26 @@ from pydantic import (
     conint,
     field_validator,
 )
+from pydantic_core import MultiHostUrl
+from pydantic_core.core_schema import ValidationInfo
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aiosmtplib.smtp import DEFAULT_TIMEOUT
 from fastapi_mail import ConnectionConfig
-from pydantic_core import MultiHostUrl
-from pydantic_core.core_schema import FieldValidationInfo
-from pydantic_settings import BaseSettings
 
 PROJECT_DIR: Path = Path(__file__).parent.parent
 BASE_DIR: Path = PROJECT_DIR.parent
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="MIOLINGO_",
+        env_file=[BASE_DIR / ".env"],
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
+
     PROJECT_DIR: Path = PROJECT_DIR
 
     DEBUG: bool = False
@@ -41,7 +49,6 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     POSTGRES_URI: MultiHostUrl | None = None
-    POSTGRES_URI_ASYNC: MultiHostUrl | None = None
 
     # Mail connector
     MAIL_USERNAME: str
@@ -69,13 +76,6 @@ class Settings(BaseSettings):
 
     SECRET: str
 
-    class Config:
-        case_sensitive = True
-        env_prefix = "MIOLINGO_"
-        env_file = [BASE_DIR / ".env"]
-        env_file_encoding = "utf-8"
-        extra = "ignore"
-
     @field_validator("LOG_LEVEL", mode="before")
     @classmethod
     def check_log_level(cls, v: int | str) -> int:
@@ -88,10 +88,11 @@ class Settings(BaseSettings):
 
         raise ValueError(v)
 
+    @field_validator("POSTGRES_URI", mode="before")
     @classmethod
-    def assemble_db_connection(cls, scheme: str, info: FieldValidationInfo) -> MultiHostUrl:
+    def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> MultiHostUrl:
         return PostgresDsn.build(
-            scheme=scheme,
+            scheme="postgresql+psycopg",
             host=info.data.get("POSTGRES_HOST"),
             port=info.data.get("POSTGRES_PORT"),
             username=info.data.get("POSTGRES_USER"),
@@ -99,19 +100,9 @@ class Settings(BaseSettings):
             path=f"{info.data.get('POSTGRES_DB') or ''}",
         )
 
-    @field_validator("POSTGRES_URI", mode="before")
-    @classmethod
-    def assemble_db_connection_sync(cls, v: str | None, info: FieldValidationInfo) -> MultiHostUrl:
-        return cls.assemble_db_connection("postgresql+psycopg", info)
-
-    @field_validator("POSTGRES_URI_ASYNC", mode="before")
-    @classmethod
-    def assemble_db_connection_async(cls, v: str | None, info: FieldValidationInfo) -> MultiHostUrl:
-        return cls.assemble_db_connection("postgresql+asyncpg", info)
-
     @field_validator("SMTP_CONFIG", mode="before")
     @classmethod
-    def assemble_smtp_connection(cls, v: str | None, info: FieldValidationInfo) -> ConnectionConfig:
+    def assemble_smtp_connection(cls, v: str | None, info: ValidationInfo) -> ConnectionConfig:
         return ConnectionConfig(
             MAIL_USERNAME=info.data.get("MAIL_USERNAME"),
             MAIL_PASSWORD=info.data.get("MAIL_PASSWORD"),

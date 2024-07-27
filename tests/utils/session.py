@@ -1,12 +1,10 @@
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
+from asyncio import current_task
 
-from miolingo import settings
+from sqlalchemy.ext.asyncio import async_scoped_session
 
-if settings.POSTGRES_URI is None:  # pragma: no cover
-    raise RuntimeError("Did you forgot to export database env vars?")
+from miolingo.db.session import async_session_factory
 
-# Only used by factory_boy which didn't support natively async conn.
-engine: Engine = create_engine(url=str(settings.POSTGRES_URI))
-session_factory: sessionmaker = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-session_scoped: scoped_session = scoped_session(session_factory)
+async_session_scoped: async_scoped_session = async_scoped_session(
+    session_factory=async_session_factory,
+    scopefunc=current_task,
+)

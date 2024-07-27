@@ -20,7 +20,7 @@ if config.config_file_name is not None:
 
 # ----------CUSTOM-----------------
 
-config.set_main_option("sqlalchemy.url", str(settings.POSTGRES_URI_ASYNC))
+config.set_main_option("sqlalchemy.url", str(settings.POSTGRES_URI))
 
 from miolingo.db.base import Base  # noqa
 

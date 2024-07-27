@@ -1,6 +1,6 @@
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator
 
-from sqlalchemy import Connection, Engine, Transaction, create_engine, make_url, text
+from sqlalchemy import make_url, text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import (
     AsyncTransaction,
     create_async_engine,
 )
-from sqlalchemy.orm import Session
 
 import pytest
 
@@ -17,7 +16,7 @@ from miolingo.conf.loggers import configure_loggers
 from miolingo.db.base import Base
 from miolingo.db.session import async_session_factory
 from tests.utils.client import AsyncClientTest
-from tests.utils.session import session_scoped
+from tests.utils.session import async_session_scoped
 
 
 @pytest.hookimpl(trylast=True)
@@ -29,7 +28,7 @@ def pytest_sessionstart() -> None:
 @pytest.fixture(scope="session")
 def anyio_backend() -> str:
     """
-    Redeclare anyio_backend fixture, but at scope session level.
+    @see https://anyio.readthedocs.io/en/stable/testing.html#using-async-fixtures-with-higher-scopes
     """
     return "asyncio"
 
@@ -40,10 +39,10 @@ def test_db_name() -> str:
 
 
 @pytest.fixture(scope="session")
-async def create_database(anyio_backend, test_db_name: str) -> AsyncGenerator:
+async def create_database(anyio_backend: str, test_db_name: str) -> AsyncGenerator:
     # Establish a connection to the current DB with admin role.
     async_engine_admin: AsyncEngine = create_async_engine(
-        url=str(settings.POSTGRES_URI_ASYNC),
+        url=str(settings.POSTGRES_URI),
         isolation_level="AUTOCOMMIT",
     )
     # Then drop/create test database
@@ -59,60 +58,46 @@ async def create_database(anyio_backend, test_db_name: str) -> AsyncGenerator:
 
 
 @pytest.fixture(scope="session")
-def engine(create_database, test_db_name: str) -> Generator[Engine, None, None]:
-    url = make_url(str(settings.POSTGRES_URI)).set(database=test_db_name)
-    engine = create_engine(url=url)
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture(scope="session")
 async def async_engine(anyio_backend, create_database, test_db_name: str) -> AsyncGenerator[AsyncEngine, None]:
-    url = make_url(str(settings.POSTGRES_URI_ASYNC)).set(database=test_db_name)
+    url = make_url(str(settings.POSTGRES_URI)).set(database=test_db_name)
     async_engine = create_async_engine(url=url)
     yield async_engine
     await async_engine.dispose()
 
 
 @pytest.fixture(scope="session")
-async def create_tables(async_engine: AsyncEngine) -> AsyncGenerator:
-    async with async_engine.begin() as async_conn:
-        await async_conn.run_sync(Base.metadata.create_all)
-
-    yield
-
-    async with async_engine.begin() as async_conn:
-        await async_conn.run_sync(Base.metadata.drop_all)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def scoped_session_db(create_tables, engine: Engine) -> Generator[Session, None, None]:
-    conn: Connection = engine.connect()
-    transaction: Transaction = conn.begin()
-    # Reconfigure factory boy scoped session to use testing DB with transaction.
-    session_scoped.configure(bind=conn)
-
-    session_db: Session = session_scoped()
-
-    yield session_db
-
-    transaction.rollback()
-    session_scoped.remove()
-    conn.close()
-
-
-@pytest.fixture(scope="function", autouse=True)
-async def async_session_db(scoped_session_db: Session, async_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+async def async_connection(async_engine: AsyncEngine) -> AsyncGenerator[AsyncConnection, None]:
     async_conn: AsyncConnection = await async_engine.connect()
-    async_transaction: AsyncTransaction = await async_conn.begin()
-    # Reconfigure app session maker to use testing DB with transaction started.
-    async_session_factory.configure(bind=async_conn)
-
-    async_session: AsyncSession = async_session_factory()
-    yield async_session
-
-    await async_transaction.rollback()
+    yield async_conn
     await async_conn.close()
+
+
+@pytest.fixture(scope="session")
+async def create_tables(async_connection: AsyncConnection) -> AsyncGenerator:
+    await async_connection.run_sync(Base.metadata.create_all)
+    await async_connection.commit()
+    yield
+    await async_connection.run_sync(Base.metadata.drop_all)
+    await async_connection.commit()
+
+
+@pytest.fixture(scope="function", autouse=True)
+async def async_session_db(create_tables, async_connection: AsyncConnection) -> AsyncGenerator[AsyncSession, None]:
+    """
+    @see https://docs.sqlalchemy.org/en/20/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites
+    """
+    # Begin a non-ORM transaction.
+    async_transaction: AsyncTransaction = await async_connection.begin()
+
+    # Reconfigure sessionmakers to use testing DB with root transaction started.
+    async_session_factory.configure(bind=async_connection, join_transaction_mode="create_savepoint")
+    async_session_scoped.configure(bind=async_connection, join_transaction_mode="create_savepoint")
+
+    async_session_db: AsyncSession = async_session_scoped()
+    yield async_session_db
+
+    await async_session_scoped.remove()  # Close scoped sessions
+    await async_transaction.rollback()  # rollback everything
 
 
 @pytest.fixture

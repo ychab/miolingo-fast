@@ -17,6 +17,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     reset_password_token_secret = settings.SECRET
     verification_token_secret = settings.SECRET
 
+    def check_password(self, user: User, password: str) -> bool:
+        return self.password_helper.verify_and_update(password, user.hashed_password)[0]
+
     async def validate_password(self, password: str, user: UserCreate | User) -> None:
         if len(password) < 8:
             raise InvalidPasswordException(reason="Password should be at least 8 characters")
