@@ -7,6 +7,9 @@ from jinja2 import Template, TemplateNotFound
 
 from miolingo import settings
 
+if settings.SMTP_CONFIG is None:  # pragma: no cover
+    raise RuntimeError("Did you forgot to export MAIL_ env vars?")
+
 fast_mail: FastMail = FastMail(settings.SMTP_CONFIG)
 
 

@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     @classmethod
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> MultiHostUrl:
         return PostgresDsn.build(
-            scheme="postgresql+psycopg",
+            scheme="postgresql+asyncpg",
             host=info.data.get("POSTGRES_HOST"),
             port=info.data.get("POSTGRES_PORT"),
             username=info.data.get("POSTGRES_USER"),
