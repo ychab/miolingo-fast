@@ -19,4 +19,3 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
 
 class AccessToken(SQLAlchemyBaseAccessTokenTableUUID, Base):
     user: Mapped["User"] = relationship("User", uselist=False, back_populates="access_token")
-

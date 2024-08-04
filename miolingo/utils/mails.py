@@ -2,7 +2,7 @@ from typing import Any
 
 from pydantic import EmailStr
 
-from fastapi_mail import FastMail, MessageSchema, MessageType
+from fastapi_mail import FastMail, MessageSchema, MessageType, MultipartSubtypeEnum
 from jinja2 import Template, TemplateNotFound
 
 from miolingo import settings
@@ -24,16 +24,16 @@ async def send_mail_with_template(
             template_name=template_name.replace(".html", ".txt"),
         )
     except TemplateNotFound:
-        alternative_body = None
+        pass
     else:
-        alternative_body = template.render(**template_body)
+        kwargs["alternative_body"] = template.render(**template_body)
+        kwargs["multipart_subtype"] = MultipartSubtypeEnum.alternative
 
     # Then build the message schema.
     message = MessageSchema(
         subject=subject,
         recipients=recipients,
         template_body=template_body,
-        alternative_body=alternative_body,
         subtype=MessageType.html,
         **kwargs,
     )

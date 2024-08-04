@@ -29,8 +29,7 @@ pytest = "^8.2.2"
 pytest-cov = "^5.0.0"
 pytest-reverse = "^1.7.0"
 pytest-dotenv = "^0.5.2"
-factory-boy = "^3.3.0"
-async-factory-boy = "^1.0.1"
+polyfactory = "^2.16.2"
 beautifulsoup4 = "^4.12.3"
 
 [tool.poetry.group.dev.dependencies]
@@ -52,9 +51,10 @@ extend-exclude = ""
 [tool.isort]
 profile = "black"
 skip = ""
-sections = "FUTURE,STDLIB,FRAMEWORK,THIRDPARTY,FIRSTPARTY,LOCALFOLDER"
+sections = "FUTURE,STDLIB,FRAMEWORK,THIRDPARTY,FIRSTPARTY,TESTS,LOCALFOLDER"
 known_framework = "fastapi,fastapi_users,fastapi_users_db_sqlalchemy,pydantic,pydantic_core,pydantic_settings,sqlalchemy,alembic"
 known_first_party = "miolingo"
+known_tests = "tests"
 
 [tool.ruff]
 line-length = 119

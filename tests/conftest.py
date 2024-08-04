@@ -15,8 +15,8 @@ from miolingo import settings
 from miolingo.conf.loggers import configure_loggers
 from miolingo.db.base import Base
 from miolingo.db.session import async_session_factory
-from tests.utils.client import AsyncClientTest
-from tests.utils.session import async_session_scoped
+
+from tests.factories.base import BaseFactory
 
 
 @pytest.hookimpl(trylast=True)
@@ -91,15 +91,10 @@ async def async_session_db(create_tables, async_connection: AsyncConnection) -> 
 
     # Reconfigure sessionmakers to use testing DB with root transaction started.
     async_session_factory.configure(bind=async_connection, join_transaction_mode="create_savepoint")
-    async_session_scoped.configure(bind=async_connection, join_transaction_mode="create_savepoint")
 
-    async_session_db: AsyncSession = async_session_scoped()
+    async_session_db: AsyncSession = async_session_factory()
+    BaseFactory.__async_session__ = async_session_db
+
     yield async_session_db
 
-    await async_session_scoped.remove()  # Close scoped sessions
     await async_transaction.rollback()  # rollback everything
-
-
-@pytest.fixture
-async def async_client(async_session_db: AsyncSession) -> AsyncClientTest:
-    return AsyncClientTest()

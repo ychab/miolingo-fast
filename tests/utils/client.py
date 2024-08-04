@@ -1,9 +1,9 @@
-from typing import Any, Optional
+from typing import Any
 
 from httpx import ASGITransport, AsyncClient, Headers
 
-from miolingo import settings
 from miolingo.main import app
+from miolingo.models import AccessToken
 
 
 class AsyncClientTest(AsyncClient):
@@ -15,17 +15,13 @@ class AsyncClientTest(AsyncClient):
     def url_path_for(self, name: str) -> str:
         return self._transport.app.url_path_for(name)
 
-    def login(self, username: Optional[str] = None, password: Optional[str] = None) -> None:
-        username = username or settings.API_HTTP_AUTH_USER
-        password = password or settings.API_HTTP_AUTH_PASS
-        token = None
-
+    def force_login(self, access_token: AccessToken) -> None:
         # @TODO - should be binary ?? should it be base64 encoded too?
         self.headers.update(
             {
-                "Authorization": f"Bearer {token}",
+                "Authorization": f"Bearer {access_token.token}",
             }
         )
 
-    def logout(self) -> None:
+    def force_logout(self) -> None:
         self.headers = Headers()

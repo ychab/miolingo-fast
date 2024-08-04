@@ -1,41 +1,45 @@
 import secrets
-from typing import Any
 
 from fastapi_users.password import PasswordHelper
 
-import factory
+from polyfactory import Ignore, Use
+from polyfactory.decorators import post_generated
 
-from miolingo import settings
 from miolingo.models.users import AccessToken, User
+
 from tests.factories.base import BaseFactory
 
-current_locale = settings.LANGUAGE_CODE
 
-
-class UserFactory(BaseFactory):
-    class Meta:
-        model = User
-
-    class Params:
-        password = "test"
-
-    first_name = factory.Faker("first_name", locale=current_locale)
-    last_name = factory.Faker("last_name", locale=current_locale)
-    email = factory.LazyAttributeSequence(lambda o, n: f"test-{n}+{o.first_name}.{o.last_name}@miolingo.com")
-    hashed_password = factory.LazyAttribute(lambda o: PasswordHelper().hash(o.password))
+class UserFactory(BaseFactory[User]):
+    first_name = Use(BaseFactory.__faker__.first_name)
+    last_name = Use(BaseFactory.__faker__.last_name)
 
     is_active = True
     is_superuser = False
     is_verified = True
 
-    @factory.post_generation
-    def access_token(self, created, extracted, **kwargs) -> None:
-        if created and extracted:  # pragma: no branch
-            AccessTokenFactory(user=self)
+    @post_generated
+    @classmethod
+    def hashed_password(cls) -> str:
+        return PasswordHelper().hash("test")
+
+    @post_generated
+    @classmethod
+    def email(cls, first_name: str, last_name: str) -> str:
+        return f"{first_name}.{last_name}-{cls.__random__.randint(0, 10000)}@miolingo.com"
 
 
-class AccessTokenFactory(BaseFactory):
-    class Meta:
-        model = AccessToken
+class UserFactoryRel(UserFactory):
+    __set_as_default_factory_for_type__ = False
+    __set_relationships__ = True
 
-    user = factory.SubFactory(UserFactory)
+
+class AccessTokenFactory(BaseFactory[AccessToken]):
+    __set_relationships__ = True
+
+    user = UserFactory
+    created_at = Ignore()  # Default to DB now_utc
+
+    @classmethod
+    def token(cls) -> str:
+        return secrets.token_urlsafe()

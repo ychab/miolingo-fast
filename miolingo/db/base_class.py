@@ -1,7 +1,14 @@
 from sqlalchemy import Integer
-from sqlalchemy.orm import Mapped, declarative_base, declared_attr, mapped_column
+from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
-Base = declarative_base()
+
+class Base(AsyncAttrs, DeclarativeBase):
+    """
+    @see https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html#synopsis-orm
+    """
+
+    pass
 
 
 class BaseModelMixin:
